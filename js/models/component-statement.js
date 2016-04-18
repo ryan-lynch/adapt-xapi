@@ -1,18 +1,20 @@
 define(function(require) {
 
+  require('../xapiwrapper.min');
+
   var Adapt = require('coreJS/adapt');
   var _ = require('underscore');
   var Backbone = require('backbone');
   var StatementModel = require('./statement');
 
-  var ComponentStatementModel = StatementModel.extend({
+  return StatementModel.extend({
 
     initialize: function() {
       return StatementModel.prototype.initialize.call(this);
     },
 
-    getStatementObject: function() {
-      var statement = StatementModel.prototype.getStatementObject.call(this);
+    getStatement: function() {
+      var statement = StatementModel.prototype.getStatement.call(this);
 
       var verb = this.getVerb();
       var object = this.getObject();
@@ -34,24 +36,29 @@ define(function(require) {
     },
 
     getVerb: function() {
-      return StatementModel.prototype.getVerb.call(this);
+      var verb = StatementModel.prototype.getVerb.call(this);
+
+      if (
+        _.isNull(verb)
+      ) {
+        return null;
+      }
+
+      return verb;
     },
 
     getObject: function() {
-      return StatementModel.prototype.getObject.call(this);
-    },
+      var object = StatementModel.prototype.getObject.call(this);
 
-    getActivityDefinitionObject: function() {
-      var object = StatementModel.prototype.getActivityDefinitionObject.call(this);
-
-      if (_.isEmpty(object)) {
-        object = {};
+      if (
+        _.isNull(object)
+      ) {
+        return null;
       }
 
-      object.name = {};
-      object.name[Adapt.config.get('_defaultLanguage')] = this.get('model').get('title');
+      object.id = ['http://adaptlearning.org', this.get('model').get('_type'), this.get('model').get('_component')].join('/');
 
-      object.type = ['http://adaptlearning.org', this.get('model').get('_type'), this.get('model').get('_component')].join('/');
+      object.definition.name[Adapt.config.get('_defaultLanguage')] = this.get('model').get('title');
 
       return object;
     },
@@ -81,22 +88,31 @@ define(function(require) {
       }
 
       if (this.get('model').get('_isPartOfAssessment') == true) {
+        // Parent is the assessment
         // component -> block -> article
         var article = this.get('model').getParent().getParent();
 
         if (!_.isEmpty(article)) {
           var assessmentIri = [this.get('activityId'), 'assessment', article.get('_id')].join('/');
           contextActivities.parent = {
-            id : assessmentIri
+            id: assessmentIri
+          }
+        }
+      } else {
+        // Parent is the course
+        // component -> block -> article -> page -> course
+        var course = this.get('model').getParent().getParent().getParent().getParent();
+        if (!_.isEmpty(course)) {
+          var courseIri = [this.get('activityId'), 'course', course.get('_id')].join('/');
+          contextActivities.parent = {
+            id: courseIri
           }
         }
       }
 
       return contextActivities;
-    },
+    }
 
   });
-
-  return ComponentStatementModel;
 
 });
